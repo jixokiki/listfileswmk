@@ -1,35 +1,91 @@
+// const express = require("express");
+// const router = express.Router();
+// const { bucket } = require("../firebaseAdmin");
+
+// router.get("/", async (req, res) => {
+// try {
+// const prefix = req.query.prefix || "produk_complus/"; // optional override via query
+// const [files] = await bucket.getFiles({ prefix });
+
+// const results = await Promise.all(
+//   files
+//     .filter((f) => !f.name.endsWith("/"))
+//     .map(async (f) => {
+//       // signed URL 1 jam
+//       const [signedUrl] = await f.getSignedUrl({
+//         action: "read",
+//         expires: Date.now() + 60 * 60 * 1000
+//       });
+//       return { name: f.name.split("/").pop(), url: signedUrl, fullPath: f.name };
+//     })
+// );
+
+// res.json(results);
+
+
+// } catch (err) {
+// console.error("listFiles error:", err && err.message);
+// res.status(500).json({ error: "Internal server error" });
+// }
+// });
+
+// module.exports = router;
+
+
+
+
+
+
+
+
+
+
+
 const express = require("express");
 const router = express.Router();
 const { bucket } = require("../firebaseAdmin");
 
+// Middleware CORS khusus route ini
+router.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "https://waemandirikarya-wmk.web.app");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  
+  // tanggapi preflight
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
+  next();
+});
+
 router.get("/", async (req, res) => {
-try {
-const prefix = req.query.prefix || "produk_complus/"; // optional override via query
-const [files] = await bucket.getFiles({ prefix });
+  try {
+    const prefix = req.query.prefix || "produk_complus/"; // optional override via query
+    const [files] = await bucket.getFiles({ prefix });
 
-const results = await Promise.all(
-  files
-    .filter((f) => !f.name.endsWith("/"))
-    .map(async (f) => {
-      // signed URL 1 jam
-      const [signedUrl] = await f.getSignedUrl({
-        action: "read",
-        expires: Date.now() + 60 * 60 * 1000
-      });
-      return { name: f.name.split("/").pop(), url: signedUrl, fullPath: f.name };
-    })
-);
+    const results = await Promise.all(
+      files
+        .filter((f) => !f.name.endsWith("/"))
+        .map(async (f) => {
+          const [signedUrl] = await f.getSignedUrl({
+            action: "read",
+            expires: Date.now() + 60 * 60 * 1000
+          });
+          return { name: f.name.split("/").pop(), url: signedUrl, fullPath: f.name };
+        })
+    );
 
-res.json(results);
+    res.json(results);
 
-
-} catch (err) {
-console.error("listFiles error:", err && err.message);
-res.status(500).json({ error: "Internal server error" });
-}
+  } catch (err) {
+    console.error("listFiles error:", err && err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 module.exports = router;
+
 
 
 
