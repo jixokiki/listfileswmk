@@ -1,0 +1,10 @@
+.vercel
+service-account.json
+.env.local
+.env*
+service-account.json
+
+service-account.json
+.env.local
+.env*
+*.pem
