@@ -88,49 +88,75 @@
 
 
 
+// const express = require("express");
+// const serverless = require("serverless-http"); // agar bisa di Vercel
+// const { bucket } = require("../firebaseAdmin");
+
+// const app = express();
+
+// // Middleware CORS
+// app.use((req, res, next) => {
+//   res.setHeader("Access-Control-Allow-Origin", "https://waemandirikarya-wmk.web.app");
+//   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+//   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+//   if (req.method === "OPTIONS") {
+//     return res.sendStatus(200);
+//   }
+//   next();
+// });
+
+// app.get("/listFiles", async (req, res) => {
+//   try {
+//     const prefix = req.query.prefix || "produk_complus/";
+//     const [files] = await bucket.getFiles({ prefix });
+
+//     const results = await Promise.all(
+//       files
+//         .filter((f) => !f.name.endsWith("/"))
+//         .map(async (f) => {
+//           const [signedUrl] = await f.getSignedUrl({
+//             action: "read",
+//             expires: Date.now() + 60 * 60 * 1000
+//           });
+//           return { name: f.name.split("/").pop(), url: signedUrl, fullPath: f.name };
+//         })
+//     );
+
+//     res.json(results);
+//   } catch (err) {
+//     console.error("listFiles error:", err.message);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
+
+// // Export untuk Vercel
+// module.exports = app;
+// module.exports.handler = serverless(app);
+
+
+// api/listFiles.js
 const express = require("express");
-const serverless = require("serverless-http"); // agar bisa di Vercel
-const { bucket } = require("../firebaseAdmin");
+const serverless = require("serverless-http");
+const cors = require("cors");
+const listFilesRouter = require("../routes/listFiles");
 
 const app = express();
 
-// Middleware CORS
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "https://waemandirikarya-wmk.web.app");
-  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://waemandirikarya-wmk.web.app";
 
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
+app.use(cors({
+  origin: ALLOWED_ORIGIN,
+  methods: ["GET","OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
-app.get("/listFiles", async (req, res) => {
-  try {
-    const prefix = req.query.prefix || "produk_complus/";
-    const [files] = await bucket.getFiles({ prefix });
+// mount router at root because Vercel will mount this file to /api/listFiles
+app.use("/", listFilesRouter);
 
-    const results = await Promise.all(
-      files
-        .filter((f) => !f.name.endsWith("/"))
-        .map(async (f) => {
-          const [signedUrl] = await f.getSignedUrl({
-            action: "read",
-            expires: Date.now() + 60 * 60 * 1000
-          });
-          return { name: f.name.split("/").pop(), url: signedUrl, fullPath: f.name };
-        })
-    );
+// health (optional)
+app.get("/_health", (req, res) => res.json({ ok: true }));
 
-    res.json(results);
-  } catch (err) {
-    console.error("listFiles error:", err.message);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Export untuk Vercel
 module.exports = app;
 module.exports.handler = serverless(app);
 
