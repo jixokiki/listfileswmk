@@ -8,3 +8,8 @@ service-account.json
 .env.local
 .env*
 *.pem
+
+node_modules/
+.env
+service-account.json
+

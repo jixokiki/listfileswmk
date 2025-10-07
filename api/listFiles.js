@@ -40,28 +40,75 @@
 
 
 
+//jangan dihapus ini yang dipakai 
+// const express = require("express");
+// const router = express.Router();
+// const { bucket } = require("../firebaseAdmin");
+
+// // Middleware CORS khusus route ini
+// router.use((req, res, next) => {
+//   res.setHeader("Access-Control-Allow-Origin", "https://waemandirikarya-wmk.web.app");
+//   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+//   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  
+//   // tanggapi preflight
+//   if (req.method === "OPTIONS") {
+//     return res.sendStatus(200);
+//   }
+
+//   next();
+// });
+
+// router.get("/", async (req, res) => {
+//   try {
+//     const prefix = req.query.prefix || "produk_complus/"; // optional override via query
+//     const [files] = await bucket.getFiles({ prefix });
+
+//     const results = await Promise.all(
+//       files
+//         .filter((f) => !f.name.endsWith("/"))
+//         .map(async (f) => {
+//           const [signedUrl] = await f.getSignedUrl({
+//             action: "read",
+//             expires: Date.now() + 60 * 60 * 1000
+//           });
+//           return { name: f.name.split("/").pop(), url: signedUrl, fullPath: f.name };
+//         })
+//     );
+
+//     res.json(results);
+
+//   } catch (err) {
+//     console.error("listFiles error:", err && err.message);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
+
+// module.exports = router;
+
+
 
 const express = require("express");
-const router = express.Router();
+const serverless = require("serverless-http"); // agar bisa di Vercel
 const { bucket } = require("../firebaseAdmin");
 
-// Middleware CORS khusus route ini
-router.use((req, res, next) => {
+const app = express();
+
+// Middleware CORS
+app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "https://waemandirikarya-wmk.web.app");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  
-  // tanggapi preflight
+
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
-
   next();
 });
 
-router.get("/", async (req, res) => {
+app.get("/listFiles", async (req, res) => {
   try {
-    const prefix = req.query.prefix || "produk_complus/"; // optional override via query
+    const prefix = req.query.prefix || "produk_complus/";
     const [files] = await bucket.getFiles({ prefix });
 
     const results = await Promise.all(
@@ -77,14 +124,15 @@ router.get("/", async (req, res) => {
     );
 
     res.json(results);
-
   } catch (err) {
-    console.error("listFiles error:", err && err.message);
+    console.error("listFiles error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-module.exports = router;
+// Export untuk Vercel
+module.exports = app;
+module.exports.handler = serverless(app);
 
 
 
