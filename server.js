@@ -171,7 +171,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use("/listFiles", listFilesRouter);
 
 // mount send-email router (ditambahkan)
-app.use("/api/send-email", sendEmailRouter);
+// app.use("/api/send-email", sendEmailRouter);
+app.use("/sendEmail", sendEmailRouter);
 
 // === START: tambahan route renameStorage dan helper storage ===
 
