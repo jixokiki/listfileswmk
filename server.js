@@ -136,10 +136,33 @@ const { Storage } = require("@google-cloud/storage");
 const app = express();
 
 // sesuaikan origin (development + production)
+// app.use(cors({
+//   origin: [ "http://localhost:4000", "https://waemandirikarya-wmk.web.app", "http://localhost:3000" ],
+//   methods: ["GET","POST","OPTIONS"]
+// }));
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:4000",
+  "https://waemandirikarya-wmk.web.app" // <-- penting
+];
+
 app.use(cors({
-  origin: [ "http://localhost:4000", "https://waemandirikarya-wmk.web.app", "http://localhost:3000" ],
-  methods: ["GET","POST","OPTIONS"]
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true); // allow non-browser requests like curl/postman
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET","POST","OPTIONS"],
+  allowedHeaders: ["Content-Type","Authorization","X-Requested-With"],
+  optionsSuccessStatus: 200
 }));
+
+// Make sure preflight requests are handled
+app.options("*", (req, res) => res.sendStatus(200));
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
