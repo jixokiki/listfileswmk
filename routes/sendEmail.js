@@ -229,17 +229,84 @@
 
 
 
-// backend
-// routes/sendEmail.js (SendGrid langsung ke mailbox perusahaan)
+// // backend
+// // routes/sendEmail.js (SendGrid langsung ke mailbox perusahaan)
+// const express = require("express");
+// const router = express.Router();
+// const sgMail = require("@sendgrid/mail");
+
+// if (!process.env.SENDGRID_API_KEY) {
+//   console.warn("SENDGRID_API_KEY not set — sendEmail route will fail until configured.");
+// } else {
+//   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// }
+
+// router.post("/", async (req, res) => {
+//   try {
+//     const { nama, email, telepon, subjek, pesan } = req.body || {};
+//     if (!nama || !email || !pesan) {
+//       return res.status(400).json({ ok: false, error: "Missing required fields" });
+//     }
+
+//     const from = process.env.SENDGRID_FROM || "no-reply@wmk.co.id";
+//     const to = "ptwaemandirikarya@wmk.co.id"; // EMAIL TUJUAN LANGSUNG
+
+//     const msg = {
+//       to,
+//       from,
+//       replyTo: email,
+//       subject: `Website Contact — ${subjek || "Pesan baru dari website"}`,
+//       text: [
+//         `Nama: ${nama}`,
+//         `Email: ${email}`,
+//         `Telepon: ${telepon || "-"}`,
+//         "",
+//         "Pesan:",
+//         pesan,
+//       ].join("\n"),
+//       html: `<p><strong>Nama:</strong> ${nama}</p>
+//              <p><strong>Email:</strong> ${email}</p>
+//              <p><strong>Telepon:</strong> ${telepon || "-"}</p>
+//              <hr/>
+//              <p>${(pesan || "").replace(/\n/g, "<br/>")}</p>`,
+//     };
+
+//     await sgMail.send(msg);
+
+//     console.log("send-email (sendgrid): email queued/sent");
+//     return res.json({ ok: true });
+//   } catch (err) {
+//     console.error("send-email (sendgrid) error:", err);
+//     const detail = err.response?.body || err.message;
+//     return res.status(500).json({ ok: false, error: JSON.stringify(detail) });
+//   }
+// });
+
+// module.exports = router;
+
+
+
+
+// routes/sendEmail.js
 const express = require("express");
 const router = express.Router();
 const sgMail = require("@sendgrid/mail");
+const nodemailer = require("nodemailer");
 
-if (!process.env.SENDGRID_API_KEY) {
-  console.warn("SENDGRID_API_KEY not set — sendEmail route will fail until configured.");
-} else {
+if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
+
+// SMTP transporter (fallback)
+const smtpTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 465),
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 router.post("/", async (req, res) => {
   try {
@@ -249,36 +316,68 @@ router.post("/", async (req, res) => {
     }
 
     const from = process.env.SENDGRID_FROM || "no-reply@wmk.co.id";
-    const to = "ptwaemandirikarya@wmk.co.id"; // EMAIL TUJUAN LANGSUNG
+    const to = "ptwaemandirikarya@wmk.co.id";
 
-    const msg = {
-      to,
+    const subject = `Website Contact — ${subjek || "Pesan baru dari website"}`;
+    const text = [
+      `Nama: ${nama}`,
+      `Email: ${email}`,
+      `Telepon: ${telepon || "-"}`,
+      "",
+      "Pesan:",
+      pesan,
+    ].join("\n");
+
+    const html = `
+      <p><strong>Nama:</strong> ${nama}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Telepon:</strong> ${telepon || "-"}</p>
+      <hr/>
+      <p>${(pesan || "").replace(/\n/g, "<br/>")}</p>
+    `;
+
+    // ======================
+    // 1️⃣ TRY SENDGRID
+    // ======================
+    try {
+      if (!process.env.SENDGRID_API_KEY) {
+        throw new Error("SendGrid API key not configured");
+      }
+
+      await sgMail.send({
+        to,
+        from,
+        replyTo: email,
+        subject,
+        text,
+        html,
+      });
+
+      console.log("send-email: sent via SendGrid");
+      return res.json({ ok: true, provider: "sendgrid" });
+
+    } catch (sendgridError) {
+      console.error("SendGrid failed, fallback to SMTP:", sendgridError.message);
+    }
+
+    // ======================
+    // 2️⃣ FALLBACK SMTP
+    // ======================
+    await smtpTransporter.sendMail({
       from,
+      to,
       replyTo: email,
-      subject: `Website Contact — ${subjek || "Pesan baru dari website"}`,
-      text: [
-        `Nama: ${nama}`,
-        `Email: ${email}`,
-        `Telepon: ${telepon || "-"}`,
-        "",
-        "Pesan:",
-        pesan,
-      ].join("\n"),
-      html: `<p><strong>Nama:</strong> ${nama}</p>
-             <p><strong>Email:</strong> ${email}</p>
-             <p><strong>Telepon:</strong> ${telepon || "-"}</p>
-             <hr/>
-             <p>${(pesan || "").replace(/\n/g, "<br/>")}</p>`,
-    };
+      subject,
+      text,
+      html,
+    });
 
-    await sgMail.send(msg);
+    console.log("send-email: sent via SMTP fallback");
+    return res.json({ ok: true, provider: "smtp" });
 
-    console.log("send-email (sendgrid): email queued/sent");
-    return res.json({ ok: true });
   } catch (err) {
-    console.error("send-email (sendgrid) error:", err);
-    const detail = err.response?.body || err.message;
-    return res.status(500).json({ ok: false, error: JSON.stringify(detail) });
+    console.error("send-email fatal error:", err);
+    return res.status(500).json({ ok: false, error: "Failed to send email" });
   }
 });
 
