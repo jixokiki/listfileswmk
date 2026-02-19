@@ -7,6 +7,7 @@ const path = require("path");
 
 const listFilesRouter = require("./routes/listFiles");
 const sendEmailRouter = require("./routes/sendEmail");
+const sendBookingRouter = require("./routes/sendBooking");
 
 const app = express();
 
@@ -56,6 +57,8 @@ app.options("/sendEmail", cors(corsOptions), (req, res) => res.sendStatus(200));
 
 // Mount the sendEmail router (ensure this file exists and exports router)
 app.use("/sendEmail", sendEmailRouter);
+
+app.use("/sendBooking", sendBookingRouter);
 
 // rename storage route (kept as you had it)
 const { Storage } = require("@google-cloud/storage");
