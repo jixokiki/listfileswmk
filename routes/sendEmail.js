@@ -286,7 +286,7 @@
 
 
 
-
+//backend
 // routes/sendEmail.js
 const express = require("express");
 const router = express.Router();
@@ -298,10 +298,20 @@ if (process.env.SENDGRID_API_KEY) {
 }
 
 // SMTP transporter (fallback)
+// const smtpTransporter = nodemailer.createTransport({
+//   host: process.env.SMTP_HOST,
+//   port: Number(process.env.SMTP_PORT || 465),
+//   secure: true,
+//   auth: {
+//     user: process.env.SMTP_USER,
+//     pass: process.env.SMTP_PASS,
+//   },
+// });
+
 const smtpTransporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 465),
-  secure: true,
+  secure: process.env.SMTP_SECURE === "true", // ✅ read from env, not hardcoded
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -339,26 +349,48 @@ router.post("/", async (req, res) => {
     // ======================
     // 1️⃣ TRY SENDGRID
     // ======================
+    // try {
+    //   if (!process.env.SENDGRID_API_KEY) {
+    //     throw new Error("SendGrid API key not configured");
+    //   }
+
+    //   await sgMail.send({
+    //     to,
+    //     from,
+    //     replyTo: email,
+    //     subject,
+    //     text,
+    //     html,
+    //   });
+
+    //   console.log("send-email: sent via SendGrid");
+    //   return res.json({ ok: true, provider: "sendgrid" });
+
+    // } catch (sendgridError) {
+    //   console.error("SendGrid failed, fallback to SMTP:", sendgridError.message);
+    // }
+
     try {
-      if (!process.env.SENDGRID_API_KEY) {
-        throw new Error("SendGrid API key not configured");
-      }
+  if (!process.env.SENDGRID_API_KEY) {
+    throw new Error("SendGrid API key not configured");
+  }
+  await sgMail.send({ to, from, replyTo: email, subject, text, html });
+  console.log("send-email: sent via SendGrid");
+  return res.json({ ok: true, provider: "sendgrid" });
+} catch (sendgridError) {
+  // 👇 Log the FULL error, not just message
+  console.error("SendGrid failed:", JSON.stringify(sendgridError?.response?.body || sendgridError.message));
+}
 
-      await sgMail.send({
-        to,
-        from,
-        replyTo: email,
-        subject,
-        text,
-        html,
-      });
-
-      console.log("send-email: sent via SendGrid");
-      return res.json({ ok: true, provider: "sendgrid" });
-
-    } catch (sendgridError) {
-      console.error("SendGrid failed, fallback to SMTP:", sendgridError.message);
-    }
+try {
+  await smtpTransporter.sendMail({ from, to, replyTo: email, subject, text, html });
+  console.log("send-email: sent via SMTP fallback");
+  return res.json({ ok: true, provider: "smtp" });
+} catch (smtpError) {
+  // 👇 Log SMTP error too
+  console.error("SMTP also failed:", smtpError.message);
+  throw smtpError; // re-throw to hit the outer catch
+}
 
     // ======================
     // 2️⃣ FALLBACK SMTP
